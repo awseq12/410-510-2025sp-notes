@@ -1,0 +1,17 @@
+*~
+*.aux
+*.synctex.gz
+*.blg
+*.toc
+*.lot
+*.fls
+*.fdb_latexmk
+*.xcp
+*.xoj
+*.lof
+*.log
+*.out
+*.pdf
+*.dvi
+_minted
+auto
