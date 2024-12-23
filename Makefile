@@ -28,7 +28,7 @@ clean:
 		-o -name '*.log'\
 		-o -name '*.out'\
 		\) -type f -not -path "./.git/*" -not -path "./src/*"\
-	     -exec sh -c 'echo "REMOVING {}"; rm {}' ';'
+	     -exec sh -c 'echo "REMOVING {}"; rm "{}"' ';'
 
 cleanall:
 	@find . \( -name '*.aux'\
@@ -47,8 +47,8 @@ cleanall:
 		-o -name '*.pdf'\
 		-o -name '*.dvi'\
 		\) -type f -not -path "./.git/*" -not -path "./src/*"\
-	     -exec sh -c 'echo "REMOVING {}"; rm {}' ';';
+	     -exec sh -c 'echo "REMOVING {}"; rm "{}"' ';';
 	@find . \( -name 'auto'\
 		-o -name '_minted*'\
 	        \) -type d -not -path "./.git/*" -not -path "./src/*" -prune\
-	     -exec sh -c 'echo "REMOVING {}"; rm -r {}' ';'
+	     -exec sh -c 'echo "REMOVING {}"; rm -r "{}"' ';'
