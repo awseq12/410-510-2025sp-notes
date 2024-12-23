@@ -1,0 +1,32 @@
+\documentclass{lecturenotes}
+
+\usepackage[colorlinks,urlcolor=blue]{hyperref}
+\usepackage{doi}
+\usepackage{agda}
+\usepackage{fontspec}
+\setsansfont{Fira Code}
+
+
+\title{Naturals and Induction}
+\coursenumber{CSE 410/510}
+\coursename{Programming Language Theory}
+\lecturenumber{2}
+\semester{Spring 2025}
+\professor{Professor Andrew K. Hirsch}
+
+\begin{document}
+\maketitle
+
+\begin{code}
+  data ℕ : Set where
+    zero : ℕ
+    suc : ℕ -> ℕ
+\end{code}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% TeX-engine: luatex
+%%% End:

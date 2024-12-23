@@ -15,3 +15,6 @@
 *.dvi
 _minted
 auto
+*.agdai
+*.ptb
+agda.sty
