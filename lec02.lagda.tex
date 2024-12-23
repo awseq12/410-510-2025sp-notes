@@ -2,9 +2,14 @@
 
 \usepackage[colorlinks,urlcolor=blue]{hyperref}
 \usepackage{doi}
+\usepackage{xspace}
 \usepackage{agda}
 \usepackage{fontspec}
 \setsansfont{Fira Code}
+\usepackage{newunicodechar}
+\newunicodechar{∣}{\ensuremath{\mid}}
+
+\newcommand{\agdanats}{\textsf{ℕ}\xspace}
 
 
 \title{Naturals and Induction}
@@ -17,11 +22,250 @@
 \begin{document}
 \maketitle
 
+We start by importing some things from the standard library.
+These will be explained later.
+\begin{center}
+\begin{code}
+  module lec02 where
+  
+  import Relation.Binary.PropositionalEquality as Eq
+  open Eq using (_≡_; refl)
+  open Eq.≡-Reasoning using (begin_; step-≡-∣; _∎)
+\end{code}
+\end{center}
+
+\section{The Natural Numbers}
+\label{sec:natural-numbers}
+
+Agda is at the same time much more powerful and much more bare bones than languages that you've seen before.
+A lot of the things you're used to being included in a language has to be defined in Agda.
+This includes things as simple as numbers!
+
+We start with the simplest form of number: the natural numbers.
+Recall: $$\mathbb{N} = \{0, 1, 2, \dots\}$$
+In this class, and in programming-languages as a field, the natural numbers always include $0$.
+
+We can build up the natural numbers as follows: $0$ is a natural number, and for every natural number~$n$, $n + 1$ is a natural number.
+Hence $1 = 0 + 1$ is a natural number, $2 = 1 + 1$ is a natural number, and so on.
+
+This sounds a lot like an OCaml variant (or, in general, an Algebraic Data Type from functional programming).
+In fact, we can encode this exactly!
+In Agda, we would write the following:
+\begin{center}
 \begin{code}
   data ℕ : Set where
     zero : ℕ
     suc : ℕ -> ℕ
 \end{code}
+\end{center}
+Here, we're defining an algebraic data type called \agdanats.
+This is our type of natural numbers.
+Note the use of unicode: this is very common in Agda!
+
+We start a definition of a new ADT with the keyword \textsf{data}, followed by the name of this new type.
+This is similar to \textsf{type ℕ = \dots} in OCaml.
+However, in Agda, we have to do more: we must tell Agda what the type of our new type is!
+In OCaml, we never have to do this, but Agda's much more powerful type system requires us to.
+We tell it that \agdanats has type \textsf{Set}, the type of Agda types.
+We'll see what other options exist later in the course.
+
+After the \textsf{where}, we find a list of constructors, all indented the same amount.
+Note that Agda, unlike OCaml, is whitespace-sensitive.
+Each constructor then has a type, which must be a function into \agdanats.
+The constructor \textsf{zero}, representing $0$, carries no data, and so has no arguments.
+The constructor \textsf{suc}, on the other hand, represents ${} + 1$.
+Thus, $1 = \textsf{suc zero}$, $2 = \textsf{suc (suc zero)}$, and so on.
+We thus need a natural-number argument for \textsf{suc}.
+
+Nobody wants to write \textsf{suc (suc (suc zero))} for three every time they use it, so Agda gives us the ability to use normal numbers to represent natural numbers.
+We do this using the following \emph{pragma} (command to the Agda compiler):
+\begin{center}
+\begin{code}
+  {-# BUILTIN NATURAL ℕ #-}
+\end{code}
+\end{center}
+This also has the pleasant side effect of speeding up several operations that we will define on \agdanats.
+
+\pagebreak
+As in OCaml, we can write code involving natural numbers using recursion.
+For instance, we could write a program that \textsf{double}s its input as follows:
+\begin{center}
+\begin{code}
+  double : ℕ -> ℕ
+  double zero = zero
+  double (suc n) = suc (suc (double n))
+\end{code}
+\end{center}
+We start by describing the type of \textsf{double}: it is a function that takes a \agdanats to an \agdanats.
+In OCaml, we usually allow the inference algorithm to figure this out for us; in Agda, we should always give the type of a function.
+We then give the definition of the function using pattern-matching clauses.
+This is similar to \textsf{function} in OCaml: rather than naming an argument and then immediately using something like \textsf{match}, we only give the patterns for the argument.
+In Agda, we do this by giving the name of the function along with patterns for every argument, followed by the body of the function \emph{for that pattern match}, repeatedly.
+In this case, we have two patterns: \textsf{zero} and \textsf{suc n}.
+If the input is \textsf{zero}, we simply return \textsf{zero}, since twice zero is zero.
+If the input is \textsf{suc n}, we double \textsf{n}, and then we add two successors to it, effectively doubling \textsf{suc n}.
+
+Mathematically, we would describe this function differently than in either OCaml or Agda:
+$$
+\textsf{double}(\textsf{n}) = \left\{\begin{array}{ll}
+  \textsf{zero} & \text{if}~\textsf{n}=\textsf{zero}\\
+  \textsf{suc (suc n)} & \text{if}~\textsf{n}=\textsf{suc n}
+\end{array}\right.
+$$
+This is \emph{definition by parts}, which you might be familiar with from e.g., calculus class.
+
+In OCaml, we can define operators using parentheses, so \textsf{(+)} would be an infix addition operator.
+Agda gives a much more powerful operator definition mechanism, which allows symbols, words, and arguments to be intermixed almost arbitrarily.
+For instance, we can define the infix addition operator as follows:
+\begin{center}
+\begin{code}
+  _+_ : ℕ -> ℕ -> ℕ
+  zero + m = m
+  suc n + m = suc (n + m)
+
+  {-# BUILTIN NATPLUS _+_ #-}
+\end{code}
+\end{center}
+
+This defines addition recursively by parts.
+Note that in the pattern-matching clauses, we use + infix, as we want to use it later in the code.
+Here, we match on the first argument.
+Thus, this is equivalent to the following mathematical definition by parts:
+
+$$
+n + m = \left\{\begin{array}{ll}
+  m & \text{if}~ n = \textsf{zero}\\
+  \textsf{suc}~(n' + m) & \text{if}~n=\textsf{suc}~n'
+\end{array}
+\right.
+$$
+
+The \textsf{BUILTIN} pragma tells Agda to use a more-efficient binary representation when running \textsf{\_+\_}.
+That way, we can ``pretend'' that it has this simpler unary definition, while running code that uses a more-efficient binary representation.
+Don't worry, Agda checks to make sure that your code is correct before it lets you use the \textsf{BUILTIN} pragmas.
+
+We can similarly define multiplication:\\
+\begin{minipage}{0.5\linewidth}
+\begin{code}
+  _*_ : ℕ -> ℕ -> ℕ
+  zero * m = zero
+  suc n * m = m + (n * m)
+
+  {-# BUILTIN NATTIMES _*_ #-}
+\end{code}
+\end{minipage}
+\begin{minipage}{0.5\linewidth}
+  $$
+  n * m = \left\{\begin{array}{ll}
+    \textsf{zero} & \text{if}~n=\textsf{zero}\\
+    m + (n' * m) & \text{if}~n=\textsf{suc}~n'
+  \end{array}\right.
+$$
+\end{minipage}
+
+\pagebreak
+\section{Equality in Agda}
+\label{sec:equality-agda}
+
+We have mentioned several times that Agda's type system is significantly more powerful than OCaml's.
+In particular, Agda's type system is \emph{dependent}.
+Dependent types allow programs to appear inside of types.
+The first dependent type we're going to see is equality.
+
+In Agda, \textsf{t ≡ u} is a type for any \textsf{t} and \textsf{u} that have the same type.
+We program with this type a little differently than with other types that we've seen before.
+(N.B.: Right now, I'm lying a bit to you.
+You can program with this type just like it's any other type.
+We're going to go with the lie for now.)
+In particular, you build programs of type \textsf{t ≡ u} by building chains of equalities.
+
+Let's start by proving something that we already know: doubling $1$ gives us $2$.
+\begin{center}
+\begin{code}
+  _ : double 1 ≡ 2
+  _ =
+    begin
+      double 1
+    ≡⟨⟩
+      double (suc zero)
+    ≡⟨⟩
+      suc (suc (double zero))
+    ≡⟨⟩
+      suc (suc zero)
+    ≡⟨⟩
+      2
+    ∎
+\end{code}
+\end{center}
+We start with \textsf{double 1}, which is one side of our equality.
+We then \emph{unfold} the definition of \textsf{1}, which is \textsf{suc zero}.
+Then we get to apply the pattern-matching rules for double, which in this case allow us to ``move the call to \textsf{double} past the \textsf{suc}, doubling it along the way.''
+After applying the double pattern-matching rule for zero (which just gets rid of the call to \textsf{double}), we end up with \textsf{suc (suc zero)}.
+We can then \emph{fold} that definition again, ending up with just \textsf{2}.
+
+
+In plain math, we reason exactly the same way:
+$$
+\begin{array}{ll}
+  \textsf{double}~1 &= \langle\text{definition}\rangle\\
+  \textsf{double (suc zero)} &= \langle\text{computing}\rangle\\
+  \textsf{suc (suc (double zero))} &= \langle\text{computing}\rangle\\
+  \textsf{suc (suc zero)} &= \langle\text{definition}\rangle\\
+  2
+\end{array}
+$$
+Notice that every line is a term that is equal to the one before it, and we always give a reason why these terms are equal.
+In Agda, if that reason is ``obvious,'' then you don't need to give such a reason.
+``Obvious'' here means that after we compute the terms as much as possible, they end up being the same.
+In fact, that's already true of \textsf{double 1} and \textsf{2}: they are the same after you run the computation \textsf{double 1}!
+We can thus give a simpler proof:
+\begin{center}
+\begin{code}
+  _ : double 1 ≡ 2
+  _ = refl
+\end{code}
+\end{center}
+Here, \textsf{refl} is an Agda expression that says that any two terms that are the same (after computing) are equal.
+
+\pagebreak
+Things get more complex once you have something other than a constant in the equality.
+Agda lets you prove things for \emph{all} numbers, not just for specific numbers.
+This acts like a function (in fact, it \emph{is} a function): we get an input number~$n$, and need to provide a proof for that $n$.
+\begin{center}
+\begin{code}
+  oneplus_suc : ∀ (n : ℕ) -> 1 + n ≡ suc n
+  oneplus_suc n =
+    begin
+      1 + n
+    ≡⟨⟩
+      (suc zero) + n
+    ≡⟨⟩
+      suc (zero + n)
+    ≡⟨⟩
+      suc n
+      ∎
+
+  double_suc : ∀ (n : ℕ) -> double (suc n) ≡ 2 + double n
+  double_suc n =
+    begin
+      double (suc n)
+    ≡⟨⟩
+      suc (suc (double n))
+    ≡⟨⟩
+      suc (suc (zero + double n))
+    ≡⟨⟩
+      suc (1 + double n)
+    ≡⟨⟩
+      2 + double n
+    ∎
+\end{code}
+\end{center}
+In both of these cases, we get a number as input and then run a chain of reasoning in order to provide a proof of the equality for that number.
+
+\section{Induction}
+\label{sec:induction}
+
+
 
 \end{document}
 
@@ -29,4 +273,5 @@
 %%% mode: latex
 %%% TeX-master: t
 %%% TeX-engine: luatex
+%%% TeX-command-default: "Make"
 %%% End:
