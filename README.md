@@ -10,3 +10,9 @@ The easiest way of building the notes is by running `make`. This will build all 
 
 Alternatively, `.tex` files can be built using `latexmk` as follows: `latexmk --pdf --synctex=1 --pdflatex=lualatex $FILE` (replacing `$FILE` with the name of the file you want to build).
 In order to build a `.tex` file from a `.lagda.tex` file, you must use `agda` as follows: `agda --latex --latex-dir=. $FILE`.
+
+## Contributing
+
+Students are expected to contribute notes regularly, according to an agreed-upon class schedule.
+In order to do so, they should fork this repository and submit a pull request.
+All notes should be named `lecXX.tex` or `lecXX.lagda.tex`, depending on whether they are written in pure (lua)latex or in literage agda.
