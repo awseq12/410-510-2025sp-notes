@@ -5,6 +5,7 @@
 \usepackage{xspace}
 \usepackage{agda}
 \usepackage{fontspec}
+\usepackage{enumerate}
 \setsansfont{Fira Code}
 \usepackage{newunicodechar}
 \newunicodechar{∣}{\ensuremath{\mid}}
@@ -29,8 +30,8 @@ These will be explained later.
   module lec02 where
   
   import Relation.Binary.PropositionalEquality as Eq
-  open Eq using (_≡_; refl)
-  open Eq.≡-Reasoning using (begin_; step-≡-∣; _∎)
+  open Eq using (_≡_; cong; sym; refl)
+  open Eq.≡-Reasoning using (begin_; step-≡-∣; step-≡-⟩; _∎)
 \end{code}
 \end{center}
 
@@ -105,6 +106,37 @@ In this case, we have two patterns: \textsf{zero} and \textsf{suc n}.
 If the input is \textsf{zero}, we simply return \textsf{zero}, since twice zero is zero.
 If the input is \textsf{suc n}, we double \textsf{n}, and then we add two successors to it, effectively doubling \textsf{suc n}.
 
+In order to write \textsf{double}, we take advantage of Agda's emacs mode.
+We start by writing a single clause of the definition, with a single variable, and a question mark as the definition.
+$$
+\begin{array}{l}
+  \textsf{double : ℕ -> ℕ}\\
+  \textsf{double n = ?}
+\end{array}
+$$
+We then load the file, and the question mark turns into a \emph{hole}.
+Agda tells us that this hole has type \textsf{ℕ}.
+$$
+\begin{array}{l}
+  \textsf{double : ℕ -> ℕ}\\
+  \textsf{double n = 0\{~\}}
+\end{array}
+$$
+We can then \emph{split} this definition by putting the cursor in the hole and typing \textsf{C-c~C-c} (i.e., \textsf{Ctrl + c} twice).
+It then asks us for a variable to split on; if we type \textsf{n} and enter, it turns into the following:
+$$
+\begin{array}{l}
+  \textsf{double : ℕ -> ℕ}\\
+  \textsf{double zero = 0\{~\}}\\
+  \textsf{double (suc n) = 1\{~\}}\\
+\end{array}
+$$
+where we now have two holes, one for each case.
+We can then put our cursor in the first hole, type \textsf{zero} and \textsf{C-spc} to fill in the hole.
+After filling in both holes, we get the answer we were looking for.
+The Agda mode can give you a lot of information about this hole, including all of the variables that are in context and their types.
+You should read through \href{https://agda.readthedocs.io/en/latest/tools/emacs-mode.html}{the emacs mode docs} (\url{https://agda.readthedocs.io/en/latest/tools/emacs-mode.html}).
+
 Mathematically, we would describe this function differently than in either OCaml or Agda:
 $$
 \textsf{double}(\textsf{n}) = \left\{\begin{array}{ll}
@@ -163,7 +195,6 @@ We can similarly define multiplication:\\
 $$
 \end{minipage}
 
-\pagebreak
 \section{Equality in Agda}
 \label{sec:equality-agda}
 
@@ -203,17 +234,22 @@ Then we get to apply the pattern-matching rules for double, which in this case a
 After applying the double pattern-matching rule for zero (which just gets rid of the call to \textsf{double}), we end up with \textsf{suc (suc zero)}.
 We can then \emph{fold} that definition again, ending up with just \textsf{2}.
 
-
+\pagebreak
 In plain math, we reason exactly the same way:
-$$
-\begin{array}{ll}
-  \textsf{double}~1 &= \langle\text{definition}\rangle\\
-  \textsf{double (suc zero)} &= \langle\text{computing}\rangle\\
-  \textsf{suc (suc (double zero))} &= \langle\text{computing}\rangle\\
-  \textsf{suc (suc zero)} &= \langle\text{definition}\rangle\\
-  2
-\end{array}
-$$
+\begin{thm}
+  $\textsf{double 1} = \textsf{2}$
+\end{thm}
+\begin{proof}
+  $$
+  \begin{array}{ll}
+    \textsf{double}~1 &= \langle\text{definition}\rangle\\
+    \textsf{double (suc zero)} &= \langle\text{computing}\rangle\\
+    \textsf{suc (suc (double zero))} &= \langle\text{computing}\rangle\\
+    \textsf{suc (suc zero)} &= \langle\text{definition}\rangle\\
+    2
+  \end{array}
+  $$
+\end{proof}
 Notice that every line is a term that is equal to the one before it, and we always give a reason why these terms are equal.
 In Agda, if that reason is ``obvious,'' then you don't need to give such a reason.
 ``Obvious'' here means that after we compute the terms as much as possible, they end up being the same.
@@ -227,7 +263,6 @@ We can thus give a simpler proof:
 \end{center}
 Here, \textsf{refl} is an Agda expression that says that any two terms that are the same (after computing) are equal.
 
-\pagebreak
 Things get more complex once you have something other than a constant in the equality.
 Agda lets you prove things for \emph{all} numbers, not just for specific numbers.
 This acts like a function (in fact, it \emph{is} a function): we get an input number~$n$, and need to provide a proof for that $n$.
@@ -262,8 +297,87 @@ This acts like a function (in fact, it \emph{is} a function): we get an input nu
 \end{center}
 In both of these cases, we get a number as input and then run a chain of reasoning in order to provide a proof of the equality for that number.
 
+\pagebreak
 \section{Induction}
 \label{sec:induction}
+
+Recall the principle of induction: to prove that some property $P$ holds of all natural numbers, it suffices to prove
+\begin{enumerate}[(a)]
+\item $P(0)$ holds, and
+\item if $P(n)$ holds, then $P(n + 1)$ holds.
+\end{enumerate}
+
+We can turn this into a \emph{proof template}.
+If you are lost when writing a proof, it can be useful to apply this proof template.
+\begin{thm}
+  For any $n \in \mathbb{N}$, $P(n)$ holds.
+\end{thm}
+\begin{proof}
+  We proceed by induction on $n$.\\
+  \textbf{P =} $P$
+
+  \noindent\textbf{Base case: $n = 0$:}\\
+  \dots
+  
+  \noindent\textbf{Inductive Case: $n = \textsf{suc}~m$:}\\
+  \textbf{IH: $P(m)$}\\
+  \textbf{To Show: $P(\textsf{suc}~m)$}\\
+  \dots
+\end{proof}
+
+In order to understand how to do induction in Agda, it helps to understand what is going on here.
+Remember that a forall statement is like a function.
+If you claim that $P$ holds for any $n$, then if I give you a number~$n$, you better be able to explain why $P(n)$ holds.
+One way you can do this is by recursion: ``well, $P$ holds of three because $P(2)$ holds, which holds because $P(1)$ holds, which holds because $P(0)$ holds, which holds because ....''
+This is exactly what induction is doing!
+Let's see this in practice, starting with a paper-and-pencil proof.
+\begin{thm}
+  For any $n \in \mathbb{N}$, $n + 1 = \textsf{suc}~n$.
+\end{thm}
+
+Note that this is different from asking $1 + n = \textsf{suc}~n$ which holds by computation.
+In that case, the first argument to \textsf{\_+\_} is $1$, so we know which branch of the pattern match to take.
+In this case, the first argument is $n$, and so we don't know which branch of the pattern match to take.
+
+\begin{proof}
+  We proceed by induction on $n$.\\
+  \textbf{P(n) = $n + 1 = \textsf{suc}~n$}
+
+  \noindent \textsf{Base Case: $n = 0$}\\
+  If $n = 0$, then we take the first branch of the pattern match.
+  Thus, we just get $1$, but $1 = \textsf{suc}~0 = \textsf{suc}~n$.
+
+  \noindent \textbf{Inductive Case: $n = m + 1$}\\
+  \textbf{IH: $m + 1 = \textsf{suc}~m$}\\
+  \textbf{To Show: $(\textsf{suc}~m) + 1 = \textsf{suc}~(\textsf{suc}~m)$}\\
+  $$\begin{array}{l}
+    (\textsf{suc}~m) + 1 =\{\text{computation}\}\\
+    \textsf{suc}~(m + 1) =\{\text{IH}\}\\
+    \textsf{suc}~(\textsf{suc}~m)
+  \end{array}$$
+\end{proof}
+
+\pagebreak
+In Agda, this would look like the following:
+\begin{center}
+\begin{code}
+  plusone-suc : ∀ (n : ℕ) -> n + 1 ≡ suc n
+  plusone-suc zero = refl
+  plusone-suc (suc n) =
+    begin
+      (suc n) + 1
+    ≡⟨⟩
+      suc (n + 1)
+    ≡⟨ cong suc (plusone-suc n) ⟩
+      suc (suc n)
+    ∎
+\end{code}
+\end{center}
+Where we had simply written ``IH'' before, we've now written a recursive call.
+However, note the use of \textsf{cong}.
+If we remove this, Agda will complain that $\textsf{plusone-suc}~n$ does not prove that $\textsf{suc}~(n+1) = \textsf{suc}~(\textsf{suc}~n)$; instead, it only proves $n + 1 = \textsf{suc}~n$.
+However, we are applying the same function to two equal inputs; we should get equal outputs.
+That's exactly what \textsf{cong~suc} tells Agda: we're feeding the \textsf{suc} function two equal inputs, so the outputs should be equal as well.
 
 
 
