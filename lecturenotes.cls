@@ -10,7 +10,6 @@
 \RequirePackage{amssymb}
 \RequirePackage{amsthm}
 \RequirePackage{stmaryrd}
-\RequirePackage{minted}
 \RequirePackage{comment}
 
 % AMSTHM Setup
