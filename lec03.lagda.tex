@@ -1,0 +1,380 @@
+\documentclass{lecturenotes}
+
+\usepackage[colorlinks,urlcolor=blue]{hyperref}
+\usepackage{doi}
+\usepackage{xspace}
+\usepackage{agda}
+\usepackage{fontspec}
+\usepackage{enumerate}
+\setsansfont{Fira Code}
+\usepackage{newunicodechar}
+\newunicodechar{∣}{\ensuremath{\mid}}
+
+\newcommand{\agdanats}{\textsf{ℕ}\xspace}
+\newcommand{\agdabool}{\textsf{𝔹}\xspace}
+\newcommand{\agdacons}{\textsf{∷}\xspace}
+
+
+\title{Inductive Data Types}
+\coursenumber{CSE 410/510}
+\coursename{Programming Language Theory}
+\lecturenumber{3}
+\semester{Spring 2025}
+\professor{Professor Andrew K. Hirsch}
+
+
+\begin{document}
+\maketitle
+
+As we did in lecture 02, we start with importing some things from the standard library. 
+
+\begin{center}
+    \begin{code}
+        module lec03 where
+        
+        import Relation.Binary.PropositionalEquality as Eq
+        open Eq using (_≡_; cong; sym; refl)
+        open Eq.≡-Reasoning using (begin_; step-≡-∣; step-≡-⟩; _∎)
+        open import Data.Nat using (ℕ;_+_;_*_;suc;zero)
+    \end{code}
+\end{center}
+
+
+\section{Boolean Data Types}
+\label{sec:boolean-data-types}
+
+Those used to OCaml likely are familiar with the concept of variants/algebraic data types.
+For instance, in OCaml we might define:
+
+\begin{center}
+    \textsf{type bool = true | false}
+\end{center}
+
+The above denotes a new type, bool, which should be immediately familiar.
+As expected, this type carries two possible values, true and false.
+One might wonder, however, how this would translate to Agda.
+In Agda, this definition would take the form:
+
+\begin{center}
+    \begin{code}
+        data 𝔹 : Set where
+            true : 𝔹
+            false : 𝔹
+    \end{code}
+\end{center}
+
+Here, we are defining an algebraic data type called \agdabool which represents the type of boolean.
+As we did with \agdanats in the previous lecture, we can begin writing code which acts on this new data type.
+For instance, implementations for logical AND and logical OR would take the form:
+
+\begin{center}
+    \begin{code}
+        _&&_ : 𝔹 -> 𝔹 -> 𝔹
+        true && b' = b'
+        false && b' = false 
+
+        _||_ : 𝔹 -> 𝔹 -> 𝔹 
+        true || b' = true 
+        false || b' = b' 
+    \end{code}
+\end{center}
+
+Certainly, this is interesting. However, the code above could also be implemented in OCaml.
+As we discussed last class, Agda's infix is significantly more powerful than OCaml's.
+To demonstrate this, let's implement our own version of conditional branching, which would take the form:
+
+\begin{center}
+    \begin{code}
+        if_then_else_ : ∀ {A : Set} -> 𝔹 -> A -> A -> A
+        if true then x else y = x 
+        if false then x else y = y
+    \end{code}
+\end{center}
+
+\pagebreak
+
+The type signature above indicates that for any type A, our function takes a boolean condition and two values of type A, returning a value of type A.
+Here, we begin to see the power of Agda.
+
+\vspace{0.2in}
+
+\noindent Stop and Think: How do we prove something about code which takes a boolean as an input?
+
+\noindent Answer: Case analysis. Prove each case separately until each case has been exhausted and the proof is complete. 
+
+\vspace{0.2in}
+
+Consider the following simple example:
+
+\begin{center}
+    \begin{code}
+        &&-comm : ∀ (b1 b2 : 𝔹) -> b1 && b2 ≡ b2 && b1
+        &&-comm true true = refl
+        &&-comm true false = refl
+        &&-comm false true = refl
+        &&-comm false false = refl
+    \end{code}
+\end{center}
+
+Above, we have proven that the \textsf{\&\&} infix operator is commutative. 
+Note that this operator takes two boolean arguments, which results in a total of four possible cases.
+Each case is proven individually, each requiring only simple computations allowing us to simply use the \textsf{refl} keyword. 
+Despite the simplicity of this approach, the proof is complete and type checks in Agda without error. 
+Now that we have seen a simple proof, let's turn to inductive reasoning.
+
+\vspace{0.2in}
+
+\noindent Stop and Think: What is the induction principle for booleans?
+
+\noindent Answer: The induction principle consists of two base cases. Specifically: 
+
+\begin{center}
+    \begin{code}
+        bool-ind : ∀ (P : 𝔹 -> Set) -> P true -> P false -> ∀ (x : 𝔹) -> P(x)
+        bool-ind P Ptrue Pfalse true = Ptrue 
+        bool-ind P Ptrue Pfalse false = Pfalse
+    \end{code}
+\end{center}
+
+\vspace{0.2in}
+
+\noindent Let's compare this to the induction principle we saw for the natural numbers in the previous lecture: 
+
+\begin{center}
+    \begin{code}
+        nat-ind : ∀ (P : ℕ -> Set) -> P zero -> (∀ n -> P n -> P (suc n)) -> ∀ n -> P n
+        nat-ind P Pz Ps zero = Pz
+        nat-ind P Pz Ps (suc n) = Ps n (nat-ind P Pz Ps n)
+    \end{code}
+\end{center}
+
+Why do these two induction principles differ? 
+Well, the way the data types are constructed differ.
+This requires that we also change the way we provide evidence.
+This is the secret sauce of induction!
+
+\vspace{0.2in}
+
+\section{Lists}
+\label{sec:list-types}
+
+What about a more complicated data type? Lists.
+In Ocaml, we would say \textsf{'a list}. With Agda, however, we say:
+
+\begin{center}
+    \begin{code}
+        data List (A : Set) : Set where
+            [] : List A
+            _∷_ : A -> List A -> List A
+
+        infixr 5 _∷_
+    \end{code}
+\end{center}
+
+\pagebreak
+
+Be careful, the character (\agdacons) is not the same as two colons (::).
+Try not to get the two confused, as this is a frequent source of errors.
+
+\vspace{0.2in}
+
+Note that the definition above is actually just a function from set to set. 
+We can write the code differently to make this more clear:
+
+\begin{center}
+    \begin{code}
+        data List' : Set -> Set₁ where
+            [] : ∀ {A : Set} -> List' A
+            _∷_ : ∀ {A : Set} -> List' A -> List' A
+    \end{code}
+\end{center}
+
+\noindent While this new definition certainly looks different, it is equivalent to the first. 
+
+\vspace{0.2in}
+
+Similar to the natural numbers, Lists are important enough to have their own builtin pragma that makes things more efficient:
+
+\begin{center}
+    \begin{code}
+        {-# BUILTIN LIST List #-}
+    \end{code}
+\end{center}
+
+But how does one work with lists?
+At the most basic level, we can write code such as: 
+
+\begin{center}
+    \begin{code}
+        _ : List ℕ
+        _ = 0 ∷ 1 ∷ 2 ∷ []
+    \end{code}
+\end{center}
+
+This works, but is tedious to write. 
+Likely, we will not want to write this much to define a list of any significant length.
+Instead, we can make use of patterns:
+
+\begin{center}
+    \begin{code}
+        pattern [_] z = z ∷ []
+        pattern [_,_] y z = y ∷ z ∷ []
+        pattern [_,_,_] x y z = x ∷ y ∷ z ∷ []
+        pattern [_,_,_,_] w x y z = w ∷ x ∷ y ∷ z ∷ []
+
+        _ : List ℕ
+        _ = [ 0 , 1 , 2 ]
+    \end{code}
+\end{center}
+
+Patterns make it much easier to work with lists.
+Pay special attention to the whitespace in the example above, however, as it is needed for the code to type check properly.
+
+\vspace{0.2in}
+
+\noindent Can I do things with lists? Sure! Lets look at concatenation and reverse.
+
+\begin{center}
+    \begin{code}
+        infixr 5 _++_
+
+        _++_ : ∀ {A : Set} -> List A -> List A -> List A
+        [] ++ ys = ys 
+        (x ∷ xs) ++ ys = x ∷ (xs ++ ys)
+
+        reverse : ∀ {A : Set} -> List A -> List A
+        reverse [] = [] 
+        reverse (x ∷ xs) = reverse xs ++ [ x ]
+    \end{code}
+\end{center}
+
+\pagebreak
+
+How can we prove things about lists? 
+As with booleans and natural numbers, we will need an induction princple. 
+Let's work through an example to see how induction with lists works.
+Consider the following definition of length:
+
+\begin{center}
+    \begin{code}
+        length : ∀ {A : Set} -> List A -> ℕ
+        length [] = 0
+        length (x ∷ xs) = suc (length xs)
+    \end{code}
+\end{center}
+
+Note that this is code is recursive.
+Since we do induction over recursion, we can do induction over a list. 
+The following proof template provides a formula you can follow to complete an induction proof on a list:
+
+\vspace{0.2in}
+
+\noindent Theorem: For every list \textsf{l} of type \textsf{A}, P(\textsf{l})
+
+\noindent Proof: By (structural) induction on \textsf{l} 
+
+\vspace{0.1in}
+
+\noindent Base Case: \textsf{l} = \textsf{[]} 
+
+\noindent Show: P(\textsf{[]}) 
+
+\vspace{0.1in}
+
+\noindent Inductive Case: \textsf{l} = \textsf{x} \agdacons \textsf{xs} 
+
+\noindent Inductive Hypothesis: P(\noindent{xs}) 
+
+\noindent Show: P(\textsf{x} \agdacons \textsf{xs}) 
+
+\vspace{0.1in}
+
+\noindent Therefore P(\noindent{l}) holds for any list \noindent{l}.
+
+\noindent QED
+
+\vspace{0.2in}
+
+Where does this proof template come from? From the constructors!
+Consider the constructor we defined for lists. 
+First, I have the empty list - this is the base case. 
+Next, I have cons, which takes a list A as an argument. 
+This creates my inductive case and provides me with an inductive hypothesis. 
+
+\vspace{0.2in}
+
+\noindent Can we write some proofs with this?
+Sure! Let's prove \textsf{++} is associative:
+
+\begin{center}
+    \begin{code}
+        ++-assoc : ∀ {A : Set} (xs ys zs : List A) -> xs ++ (ys ++ zs) ≡ (xs ++ ys) ++ zs
+        ++-assoc [] ys zs = refl
+        ++-assoc (x ∷ xs) ys zs =
+            begin 
+                (x ∷ xs) ++ (ys ++ zs)
+            ≡⟨⟩
+                x ∷ (xs ++ (ys ++ zs))
+            ≡⟨ cong (x ∷_) (++-assoc xs ys zs) ⟩
+                x ∷ (xs ++ ys) ++ zs
+            ∎
+    \end{code}
+\end{center}
+
+\vspace{0.2in}
+
+\section{Trees}
+\label{sec:tree-types}
+
+Quickly, there is one last data structure to cover today: trees.
+
+\begin{center}
+    \begin{code}
+        data Tree (A : Set) : Set where
+            Leaf : Tree A 
+            Node : Tree A -> A -> Tree A -> Tree A
+    \end{code}
+\end{center}
+
+\pagebreak
+
+How do I do induction on a Tree? 
+As we have said for each of the data structures before, it depends on my constructor. 
+Note the fundamental differences comparing the constructor we just defined for Tree to that for List. 
+With a list, we either had nil or cons, where cons contained a single additional List component.
+Here, however, I have a Leaf and a Node.
+Note that Node consists of not one, but two additional Node components.
+
+\vspace{0.2in}
+
+\noindent Stop and Think: How does this change my approach to induction?
+
+\noindent Answer: I get not one IH, but two! Why? Because I have two components to the node structure. 
+There are two Tree arguments to node. For every argument, we get an inductive hypothesis. 
+
+\vspace{0.2in}
+
+\begin{center}
+    \begin{code}
+        tree-ind : ∀ {A : Set} (P : Tree A -> Set) ->
+            P Leaf -> 
+            (∀ (l r : Tree A) (x : A) -> P l -> P r -> P (Node l x r)) ->
+            (t : Tree A) -> P t
+        tree-ind P Pleaf Pnode Leaf = Pleaf 
+        tree-ind P Pleaf Pnode (Node l x r) = Pnode l r x (tree-ind P Pleaf Pnode l) (tree-ind P Pleaf Pnode r)
+    \end{code}
+\end{center}
+
+\noindent Big takeaways: Whenever you have a data type defined by this data keyword (called inductive types), you can reason about the type using induction.
+How? Simply read off the construction of the type. 
+Second, if you  are comfortable with recursion, you should be confortable with induction.
+Induction is just recursion in a pretty thin disguise. 
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% TeX-engine: luatex
+%%% TeX-command-default: "Make"
+%%% End:
