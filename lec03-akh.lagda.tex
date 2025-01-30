@@ -1,0 +1,424 @@
+\documentclass{lecturenotes}
+
+\usepackage[colorlinks,urlcolor=blue]{hyperref}
+\usepackage{doi}
+\usepackage{xspace}
+\usepackage{agda}
+\usepackage{fontspec}
+\usepackage{enumerate}
+\setsansfont{Fira Code}
+\usepackage{newunicodechar}
+\newunicodechar{∣}{\ensuremath{\mid}}
+\newunicodechar{′}{\ensuremath{{}^\prime}}
+\newunicodechar{ˡ}{\ensuremath{{}^{\textsf{l}}}}
+\newunicodechar{ʳ}{\ensuremath{{}^{\textsf{r}}}}
+\newunicodechar{⊗}{\ensuremath{\otimes}}
+\newunicodechar{∷}{\ensuremath{\mathrel{::}}}
+
+\newcommand{\agdanats}{\textsf{ℕ}\xspace}
+
+\newcommand{\nil}{\ensuremath{\textsf{[]}}}
+\newcommand{\cons}{\ensuremath{\mathbin{\textsf{::}}}}
+\newcommand{\app}{\ensuremath{\mathbin{\textsf{++}}}}
+
+\title{Inductive Data Types}
+\coursenumber{CSE 410/510}
+\coursename{Programming Language Theory}
+\lecturenumber{3}
+\semester{Spring 2025}
+\professor{Professor Andrew K. Hirsch}
+
+\begin{document}
+\maketitle
+
+\begin{code}
+module lec03-akh where
+
+import Relation.Binary.PropositionalEquality as Eq
+open Eq using (_≡_; cong; sym; refl)
+open Eq.≡-Reasoning using (begin_; step-≡-∣; step-≡-⟩; _∎)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _≤_; s≤s; z≤n)
+open import Data.Nat.Properties using
+  (+-assoc; +-comm; +-identityˡ; +-identityʳ; *-assoc; *-identityˡ; *-identityʳ; *-distribʳ-+)
+\end{code}
+
+\section{Booleans and Case Analysis}
+\label{sec:bool-case-analys}
+
+\begin{itemize}
+\item The \textsf{data} keyword can do more than natural numbers. It can do any OCaml variant.
+\item For instance, booleans in Agda are defined as follows:
+\begin{code}
+data 𝔹 : Set where
+  True  : 𝔹
+  False : 𝔹
+\end{code}
+\item We can then define functions over booleans using pattern matching:
+\begin{code}
+_&&_ : 𝔹 -> 𝔹 -> 𝔹
+True && y = y
+False && y = False
+
+_||_ : 𝔹 -> 𝔹 -> 𝔹
+True || y = True
+False || y = y
+\end{code}
+\item We can also see how flexible Agda's infix declarations are:
+\begin{code}
+if_then_else_ : ∀ {A : Set} -> 𝔹 -> A -> A -> A
+if True then y else z = y
+if False then y else z = z
+
+andb : 𝔹 -> 𝔹 -> 𝔹
+andb x y = if x then y else False
+
+orb : 𝔹 -> 𝔹 -> 𝔹
+orb x y = if x then True else y
+\end{code}
+\item You might ask: ``can we do induction on the booleans?''
+  The answer is kind of yes, but it's really boring induction.
+  It turns out to be just proof by case analysis.
+\begin{code}
+bool-ind : ∀ (P : 𝔹 -> Set) -> P True -> P False -> ∀ (x : 𝔹) -> P x
+bool-ind P PT PF True = PT
+bool-ind P PT PF False = PF
+\end{code}
+\item Proofs by cases analysis can be done either through the induction principle or the traditional Agda way:
+\begin{code}
+and-false : ∀ (x : 𝔹) -> x && False ≡ False
+and-false = bool-ind (\ (x : 𝔹) -> x && False ≡ False) refl refl 
+
+or-true : ∀ (x : 𝔹) -> x || True ≡ True
+or-true True = refl
+or-true False = refl
+\end{code}
+\end{itemize}
+
+\section{Lists}
+\label{sec:lists}
+
+\begin{itemize}
+\item Just as in OCaml, we can have parameterized ADTs. For instance, lists are:
+\begin{code}
+data List (A : Set) : Set where
+  [] : List A
+  _∷_ : A -> List A -> List A -- N.B.: ∷ is _not_ two colons (::)
+
+infixr 5 _∷_
+
+{-# BUILTIN LIST List #-}
+\end{code}
+\item Here, $A$ is a \emph{parameter} of the list type, just like $\alpha~(\textsf{\textquotesingle{}a})$ would be in OCaml.
+\item We can also write this equivalent type:
+\begin{code}
+data List′ : Set -> Set₁ where
+  nil : ∀ {A : Set} -> List′ A
+  cons : ∀ {A : Set} -> A -> List′ A -> List′ A
+\end{code}
+\item Here, instead of having a named parameter, we give a type directly to \textsf{List}.
+\item This type is \textsf{Set -> Set₁}: given a type $A$, the \textsf{List} constructor returns the type $\textsf{List}~A$.
+  \begin{itemize}
+  \item Yes, this means that \textsf{List} is a function!
+  \item You can ignore the subscript \textsf{1} for now. It's there to make Agda happy.
+  \end{itemize}
+\item You can create a list by applying constructors, just like in OCaml:
+\begin{code}
+_ : List ℕ
+_ = 0 ∷ 1 ∷ 2 ∷ []
+\end{code}
+\item However, you currently can't use list notation.
+  The following tells Agda to allow us to use it:
+\begin{code}
+pattern [_] z = z ∷ []
+pattern [_,_] y z = y ∷ z ∷ []
+pattern [_,_,_] x y z = x ∷ y ∷ z ∷ []
+pattern [_,_,_,_] w x y z = w ∷ x ∷ y ∷ z ∷ []
+pattern [_,_,_,_,_] v w x y z = v ∷ w ∷ x ∷ y ∷ z ∷ []
+pattern [_,_,_,_,_,_] u v w x y z = u ∷ v ∷ w ∷ x ∷ y ∷ z ∷ []
+
+_ : List ℕ
+_ = [ 0 , 1 , 2 ]
+\end{code}
+\begin{itemize}
+\item Note the spaces!
+\end{itemize}
+\item We can program over lists just like we did numbers.
+  Note that we use curly braces for implicit arguments.
+\begin{code}
+infixr 5 _++_
+
+_++_ : ∀ {A : Set} -> List A -> List A -> List A
+[] ++ ys = ys
+(x ∷ xs) ++ ys = x ∷ (xs ++ ys)
+
+reverse : ∀ {A : Set} -> List A -> List A
+reverse [] = []
+reverse (x ∷ xs) = reverse xs ++ [ x ]
+
+length : ∀ {A : Set} -> List A -> ℕ
+length [] = 0
+length (_ ∷ xs) = suc (length xs)
+\end{code}
+
+\item Now, what if we want to prove something about lists?
+\item Well, we can use induction! There's an induction template for lists, just like for natural numbers.
+
+  \begin{thm}
+    For any $\ell \colon \textsf{List}~A$, $P(\ell)$.
+  \end{thm}
+  \begin{proof}
+    We proceed by induction on $\ell$.
+    $$P(\ell) = P(\ell)$$
+
+    \noindent\textbf{Base case ($\ell = \nil$):} \dots
+
+    \noindent\textbf{Inductive case ($\ell = x \cons xs$):}
+    $$\text{IH} = P(xs)$$
+    $$\text{To show: } P(x \cons xs)$$
+    \dots
+  \end{proof}
+\item Let's take a look at this in action.
+  \begin{thm}
+    For any lists $xs$, $ys$, and $zs$, $$xs \app (ys \app zs) = (xs \app ys) \app zs$$
+  \end{thm}
+  \begin{proof}
+    By induction on $xs$.
+    $$P(xs) = \forall ys, zs.\; xs \app (ys \app zs) = (xs \app ys) \app zs$$
+
+    \noindent\textbf{Base case ($xs = \nil$):}
+    $$\begin{array}{l@{=\langle} l@{\rangle}}
+      \nil \app (ys \app zs) & \text{computation}\\
+      ys \app zs & \text{computation}\\
+      \multicolumn{2}{l}{(\nil \app ys) \app zs}
+    \end{array}$$
+
+    \noindent\textbf{Base case ($xs = x \cons xs'$):}
+    $$
+    \begin{array}{l@{=\langle}c@{\rangle}}
+      (x \cons xs') \app (ys \app zs) & \text{computation}\\
+      x \cons (xs' \app (ys \app zs)) & \text{IH}\\
+      x \cons ((xs' \app ys) \app zs) & \text{computation}\\
+      (x \cons (xs' \app ys)) \app zs & \text{computation}\\
+      \multicolumn{2}{l}{((x \cons xs') \app ys) \app zs}
+    \end{array}
+    $$
+  \end{proof}
+\pagebreak
+\item Now lets do it in Agda!
+\begin{code}
+++-assoc : ∀ {A : Set} (xs ys zs : List A) -> xs ++ (ys ++ zs) ≡ (xs ++ ys) ++ zs
+++-assoc [] ys zs =
+  begin
+    [] ++ ys ++ zs
+  ≡⟨⟩
+    ys ++ zs
+  ≡⟨⟩
+    ([] ++ ys) ++ zs
+  ∎
+++-assoc (x ∷ xs) ys zs =
+  begin
+    (x ∷ xs) ++ ys ++ zs
+  ≡⟨⟩
+    x ∷ (xs ++ ys ++ zs)
+  ≡⟨ cong (x ∷_) (++-assoc xs ys zs) ⟩
+    x ∷ ((xs ++ ys) ++ zs)
+  ≡⟨⟩
+    (x ∷ (xs ++ ys)) ++ zs
+  ≡⟨⟩
+    ((x ∷ xs) ++ ys) ++ zs
+  ∎
+\end{code}
+\item More practice:
+\begin{code}
+++-identityˡ : ∀ {A : Set} (xs : List A) -> [] ++ xs ≡ xs
+++-identityˡ xs = refl
+
+++-identityʳ : ∀ {A : Set} (xs : List A) -> xs ++ [] ≡ xs
+++-identityʳ [] = refl
+++-identityʳ (x ∷ xs) =
+  begin
+     (x ∷ xs) ++ []
+  ≡⟨⟩
+    x ∷ (xs ++ [])
+  ≡⟨ cong (x ∷_) (++-identityʳ xs) ⟩
+    x ∷ xs
+  ∎
+
+++-length : ∀ {A : Set} (xs ys : List A) -> length (xs ++ ys) ≡ length xs + length ys
+++-length [] ys = refl
+++-length (x ∷ xs) ys =
+  begin
+    length ((x ∷ xs) ++ ys)
+  ≡⟨⟩
+    length (x ∷ (xs ++ ys))
+  ≡⟨⟩
+    suc (length (xs ++ ys))
+  ≡⟨ cong suc (++-length xs ys) ⟩
+    suc (length xs + length ys)
+  ≡⟨⟩
+    (suc (length xs)) + length ys
+  ≡⟨⟩
+    length (x ∷ xs) + length ys
+  ∎
+\end{code}
+\item Do the following as a class exercise:
+\begin{code}
+reverse-length : ∀ {A : Set} (xs : List A) -> length (reverse xs) ≡ length xs
+reverse-length [] = refl
+reverse-length (x ∷ xs) =
+  begin
+    length (reverse (x ∷ xs))
+  ≡⟨⟩
+    length ((reverse xs) ++ [ x ])
+  ≡⟨ ++-length (reverse xs) [ x ] ⟩
+    (length (reverse xs)) + length [ x ]
+  ≡⟨⟩
+    (length (reverse xs)) + 1
+  ≡⟨ cong (_+ 1) (reverse-length xs) ⟩
+    (length xs) + 1
+  ≡⟨ +-comm (length xs) 1 ⟩
+    1 + (length xs)
+  ≡⟨⟩
+    suc (length xs)
+  ≡⟨⟩
+    length (x ∷ xs)
+  ∎
+\end{code}
+
+Now, turn it into a paper-and-pencil proof on the board.
+
+\item We also have higher-order functions, just like in OCaml:
+\begin{code}
+map : ∀ {A B : Set} -> (A -> B) -> List A -> List B
+map f [] = []
+map f (x ∷ xs) = (f x) ∷ map f xs
+    
+foldr : ∀ {A B : Set} -> (A -> B -> B) -> B -> List A -> B
+foldr _⊗_ e [] = e
+foldr _⊗_ e (x ∷ xs) = x ⊗ foldr _⊗_ e xs
+
+map′ : ∀ {A B : Set} -> (A -> B) -> List A -> List B
+map′ f = foldr (\ x ys -> f x ∷ ys) [] 
+\end{code}
+
+\item We can use induction to reason about higher-order functions.
+  For instance, we can show that the two versions of map above behave the same.
+
+\begin{code}
+map′-map : ∀ {A B : Set} (f : A -> B) (xs : List A) -> map′ f xs ≡ map f xs
+map′-map f [] = refl
+map′-map f (x ∷ xs) =
+  begin
+    map′ f (x ∷ xs)
+  ≡⟨⟩
+    foldr (\ x ys -> f x ∷ ys) [] (x ∷ xs)
+  ≡⟨⟩
+    f x ∷ (foldr (\ x ys -> f x ∷ ys) [] xs)
+  ≡⟨⟩
+    f x ∷ (map′ f xs)
+  ≡⟨ cong (f x ∷_) (map′-map f xs) ⟩
+    f x ∷ (map f xs)
+  ≡⟨⟩
+    map f (x ∷ xs)
+  ∎
+\end{code}
+\item Homework: turn this into a paper-and-pencil proof.
+
+\item Again, lists have an \emph{induction principle} that the template is based on.
+\begin{code}
+list-ind : ∀ {A : Set} (P : List A -> Set) ->
+  P [] ->
+  (∀ (x : A) (xs : List A) -> P xs -> P (x ∷ xs)) ->
+  ∀ (xs : List A) -> P xs
+list-ind P Pnil Pcons [] = Pnil
+list-ind P Pnil Pcons (x ∷ xs) = Pcons x xs (list-ind P Pnil Pcons xs)
+\end{code}
+
+\end{itemize}
+
+\section{Trees}
+
+\begin{itemize}
+\item Just like in OCaml, we can handle data structures that are not linear.
+  For instance, we can write the type of binary trees:
+\begin{code}
+data Tree : Set -> Set₁ where
+  Leaf : ∀ {A : Set} -> Tree A
+  Node : ∀ {A : Set} -> Tree A -> A -> Tree A -> Tree A
+\end{code}
+
+\item We can program with trees just like we would in OCaml:
+\begin{code}
+size : ∀ {A : Set} -> Tree A -> ℕ
+size Leaf = 0
+size (Node l _ r) = suc (size l + size r)
+
+tree-rev : ∀ {A : Set} -> Tree A -> Tree A
+tree-rev Leaf = Leaf
+tree-rev (Node l x r) = Node (tree-rev r) x (tree-rev l)
+\end{code}
+
+\item Again, we can build a tree proof template.
+  Ask them to build this as a stop and think.
+\begin{thm}
+  For every tree~$t$, $P(t)$.
+\end{thm}
+\begin{proof}
+  By induction on $t$.
+  $$P(t) = P(t)$$
+
+  \noindent\textbf{Base case ($t = \textsf{Leaf}$):} \dots
+
+  \noindent\textbf{Inductive case ($t = \textbf{Node}~l~x~r$):}
+  $$\text{IH}_1 = P(l)$$
+  $$\text{IH}_2 = P(r)$$
+  $$\text{To Show: } P(\textbf{Node}~l~x~r)$$
+  \dots
+\end{proof}
+\item Question: Why not have an inductive hypothesis for $x$?
+
+\item We can then apply our proof template:
+\begin{code}
+tree-rev-size : ∀ {A : Set} (t : Tree A) -> size (tree-rev t) ≡ size t
+tree-rev-size Leaf = refl
+tree-rev-size (Node l x r) =
+  begin
+    size (tree-rev (Node l x r))
+  ≡⟨⟩
+    size (Node (tree-rev r) x (tree-rev l))
+  ≡⟨⟩
+    suc (size (tree-rev r) + size (tree-rev l))
+  ≡⟨ cong suc (cong (_+ size (tree-rev l)) (tree-rev-size r)) ⟩
+    suc (size r + size (tree-rev l))
+  ≡⟨ cong suc (cong (size r +_) (tree-rev-size l)) ⟩
+    suc (size r + size l)
+  ≡⟨ cong suc (+-comm (size r) (size l)) ⟩
+    suc (size l + size r)
+  ≡⟨⟩
+    size (Node l x r)
+  ∎
+\end{code}
+
+\item Trees also have an induction principle:
+
+\begin{code}
+tree-ind : ∀ {A : Set} {P : Tree A -> Set} ->
+  P Leaf ->
+  (∀ (x : A) {l r : Tree A} -> P l -> P r -> P (Node l x r)) ->
+  ∀ (t : Tree A) -> P t
+tree-ind Pleaf Pnode Leaf = Pleaf
+tree-ind Pleaf Pnode (Node l x r) =
+  Pnode x (tree-ind Pleaf Pnode l)
+          (tree-ind Pleaf Pnode r)
+\end{code}
+  
+\end{itemize}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% TeX-engine: luatex
+%%% TeX-command-default: "Make"
+%%% End:
