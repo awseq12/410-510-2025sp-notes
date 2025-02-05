@@ -192,7 +192,7 @@ length (_ ∷ xs) = suc (length xs)
       \multicolumn{2}{l}{(\nil \app ys) \app zs}
     \end{array}$$
 
-    \noindent\textbf{Base case ($xs = x \cons xs'$):}
+    \noindent\textbf{Inductive case ($xs = x \cons xs'$):}
     $$
     \begin{array}{l@{=\langle}c@{\rangle}}
       (x \cons xs') \app (ys \app zs) & \text{computation}\\
